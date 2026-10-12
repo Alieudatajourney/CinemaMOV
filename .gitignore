@@ -48,3 +48,6 @@ next-env.d.ts
 # Local credentials — never commit
 cred.txt
 *.cred
+
+.vercel
+.env*

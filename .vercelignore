@@ -1,0 +1,13 @@
+# Never upload local secrets or local data
+cred.txt
+*.cred
+.env
+.env.*
+!.env.example
+.data
+.dev.log
+# Build/test artefacts
+.next
+node_modules
+test-results
+playwright-report
