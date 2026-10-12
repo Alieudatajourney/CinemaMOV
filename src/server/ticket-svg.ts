@@ -17,19 +17,41 @@ const STATUS_TEXT: Record<string, string> = {
   expired: "EXPIRED — NOT VALID",
 };
 
-/** Inline a local poster (public/media/…) as a data URI so the downloaded file stays self-contained. */
-function localPosterDataUri(url?: string): string | null {
-  if (!url || !url.startsWith("/media/") || url.includes("..")) return null;
+const MAX_POSTER_BYTES = 3_000_000;
+
+/**
+ * Inline the film poster as a data URI so the downloaded file is self-contained.
+ * 1. Local artwork (/media/…): read from disk (bundled via outputFileTracingIncludes).
+ * 2. Otherwise fetch it over HTTPS — local artwork from this site's own origin, or an admin-set
+ *    https:// URL — with a timeout, an image content-type check and a size cap.
+ */
+async function posterDataUri(url: string | undefined, origin: string | undefined): Promise<string | null> {
+  if (!url || url.includes("..")) return null;
+  if (url.startsWith("/media/")) {
+    try {
+      const file = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", url);
+      return `data:image/jpeg;base64,${fs.readFileSync(file).toString("base64")}`;
+    } catch {
+      // Not on this filesystem (e.g. serverless): fall through to fetching it.
+    }
+  }
+  const absolute = url.startsWith("/") ? (origin ? `${origin}${url}` : null) : url;
+  if (!absolute || !/^https?:\/\//.test(absolute)) return null;
+  if (!absolute.startsWith("https://") && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(absolute)) return null;
   try {
-    const file = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", url);
-    return `data:image/jpeg;base64,${fs.readFileSync(file).toString("base64")}`;
+    const res = await fetch(absolute, { signal: AbortSignal.timeout(4000), redirect: "follow" });
+    const type = res.headers.get("content-type") ?? "";
+    if (!res.ok || !/^image\/(jpeg|png|webp)/.test(type)) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_POSTER_BYTES) return null;
+    return `data:${type.split(";")[0]};base64,${buf.toString("base64")}`;
   } catch {
     return null;
   }
 }
 
 /** Self-contained SVG ticket (no external fonts/images) — downloadable and convertible to PNG. */
-export async function renderTicketSvg(v: BookingView, settings: CinemaSettings): Promise<string> {
+export async function renderTicketSvg(v: BookingView, settings: CinemaSettings, origin?: string): Promise<string> {
   const qr = (await ticketQrSvg(v.ticketToken)).replace(/<\?xml[^>]*>/, "");
   const qrInner = qr.replace(/^<svg[^>]*>/, "").replace(/<\/svg>\s*$/, "");
   const viewBox = /viewBox="([^"]+)"/.exec(qr)?.[1] ?? "0 0 33 33";
@@ -41,7 +63,7 @@ export async function renderTicketSvg(v: BookingView, settings: CinemaSettings):
     .join("  ·  ");
   const snacksFull = v.concessions.map(describeLine).join(", ");
   const snacks = snacksFull.length > 70 ? `${snacksFull.slice(0, 69)}…` : snacksFull;
-  const poster = localPosterDataUri(v.movie.posterUrl);
+  const poster = await posterDataUri(v.movie.posterUrl, origin);
   const hA = v.movie.art.hueA;
   const hB = v.movie.art.hueB;
   const title = v.movie.title.length > 30 ? `${v.movie.title.slice(0, 29)}…` : v.movie.title;

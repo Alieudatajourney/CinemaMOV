@@ -5,6 +5,11 @@ import type { NextConfig } from "next";
 // is the correct default. Pages opt in with `export const dynamic = "force-dynamic"`.
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // The downloadable ticket embeds the film poster. On serverless hosts `public/` is served by the
+  // CDN and is not on the function's filesystem, so bundle the posters with that route.
+  outputFileTracingIncludes: {
+    "/api/bookings/*/ticket": ["./public/media/films/*-poster.jpg"],
+  },
   turbopack: {
     rules: {
       "*.css": {

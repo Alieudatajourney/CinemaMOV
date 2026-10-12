@@ -105,6 +105,8 @@ test("complete pitch flow: browse → seats → checkout → ticket → staff va
   const ticketUrl = new URL(page.url());
   const svg = await page.request.get(`/api/bookings/${reference}/ticket?k=${ticketUrl.searchParams.get("k")}`);
   expect(svg.headers()["content-type"]).toContain("image/svg+xml");
+  // The film poster must be embedded (regression: missing on serverless hosts).
+  expect(await svg.text()).toContain("data:image/");
   expect((await page.request.get(`/api/bookings/${reference}/ticket?k=wrong-key-wrong-key`)).status()).toBe(404);
 
   // Back navigation must not create a second booking. Checkout replaces itself in history, so

@@ -1,7 +1,9 @@
 import { expect, type Page, type APIRequestContext } from "@playwright/test";
 
-export const ADMIN = { email: "admin@monroviacinemaplus.demo", password: "PlusAdmin#2026" };
-export const STAFF = { email: "staff@monroviacinemaplus.demo", password: "PlusStaff#2026" };
+// Defaults are the built-in demo passwords; set E2E_ADMIN_PASSWORD / E2E_STAFF_PASSWORD to test a
+// deployment that uses private passwords.
+export const ADMIN = { email: "admin@monroviacinemaplus.demo", password: process.env.E2E_ADMIN_PASSWORD || "PlusAdmin#2026" };
+export const STAFF = { email: "staff@monroviacinemaplus.demo", password: process.env.E2E_STAFF_PASSWORD || "PlusStaff#2026" };
 
 /** Tomorrow's date in Monrovia (UTC+0) — every seeded film has bookable screenings then. */
 export function tomorrowKey() {

@@ -8,7 +8,7 @@ export const GET = handle<{ params: Promise<{ reference: string }> }>(async (req
   const { reference } = await params;
   const key = req.nextUrl.searchParams.get("k") ?? req.headers.get("x-access-key") ?? "";
   const { view, settings } = await readDb((db) => ({ view: bookingView(db, ownedBooking(db, reference, key)), settings: db.settings }));
-  const svg = await renderTicketSvg(view, settings);
+  const svg = await renderTicketSvg(view, settings, req.nextUrl.origin);
   return new Response(svg, {
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",

@@ -33,7 +33,9 @@ npm start              # http://localhost:3000
 | Manager (admin) | `admin@monroviacinemaplus.demo` | `PlusAdmin#2026` | `/admin` and `/staff` |
 | Box office (staff) | `staff@monroviacinemaplus.demo` | `PlusStaff#2026` | `/staff` only |
 
-The login page has one-click "Use" buttons for both accounts (hide them with `DEMO_SHOW_CREDENTIALS=0`). Change the passwords with the env vars in `.env.example` before sharing any deployment.
+The login page has one-click "Use" buttons for both accounts when they use these built-in demo passwords. Setting `DEMO_ADMIN_PASSWORD` / `DEMO_STAFF_PASSWORD` replaces them and hides that panel. New passwords take effect for the stored accounts after a demo-data reset.
+
+**The live deployment (https://cinemamov.vercel.app) uses private passwords.** They are stored encrypted in Vercel and locally in the gitignored `.env.local` (as `LIVE_*` entries, which the app ignores locally), not in this repository.
 
 ### Resetting demo data
 

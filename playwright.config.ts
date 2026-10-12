@@ -35,6 +35,10 @@ export default defineConfig({
       MCP_DATA_FILE: ".data/e2e/monrovia-cinema-plus.json",
       NODE_ENV: "production",
       MCP_DISABLE_RATE_LIMIT: "1",
+      // Never let local test runs touch a real database or private passwords from .env.local.
+      DATABASE_URL: "",
+      DEMO_ADMIN_PASSWORD: "",
+      DEMO_STAFF_PASSWORD: "",
     },
   },
 });
