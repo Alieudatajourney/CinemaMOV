@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { Wordmark } from "../brand/Wordmark";
+import { Logo } from "../brand/Wordmark";
 
 export function SiteFooter({ venue = "Monrovia Super Mall, Monrovia, Liberia" }: { venue?: string }) {
   return (
     <footer className="no-print mt-24 border-t border-white/[0.06] bg-ink-950">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
-          <Wordmark />
+          <Logo height={112} />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-fg-muted">{venue}</p>
           <p className="mt-6 max-w-sm text-xs leading-relaxed text-fg-subtle">
             Product demonstration. Showtimes, prices, contact details and bookings are sample data and do not represent actual cinema

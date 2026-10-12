@@ -23,6 +23,11 @@ const body = localFont({
 });
 
 export const metadata: Metadata = {
+  // Absolute base for social previews (opengraph-image.jpg). Vercel sets VERCEL_PROJECT_PRODUCTION_URL.
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000"),
+  ),
   title: {
     default: "Monrovia Cinema Plus — Movies & Tickets at Monrovia Super Mall",
     template: "%s · Monrovia Cinema Plus",

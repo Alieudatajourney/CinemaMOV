@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
   // The downloadable ticket embeds the film poster. On serverless hosts `public/` is served by the
   // CDN and is not on the function's filesystem, so bundle the posters with that route.
   outputFileTracingIncludes: {
-    "/api/bookings/*/ticket": ["./public/media/films/*-poster.jpg"],
+    "/api/bookings/*/ticket": ["./public/media/films/*-poster.jpg", "./public/brand/logo-256.png"],
   },
   turbopack: {
     rules: {

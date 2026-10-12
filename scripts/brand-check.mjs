@@ -1,0 +1,21 @@
+// Dev helper: screenshots of every place the logo appears. Usage: node scripts/brand-check.mjs <outDir>
+import { chromium, devices } from "@playwright/test";
+const [, , out = "."] = process.argv;
+const base = process.env.BASE_URL || "http://localhost:3000";
+const b = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome" });
+const errors = [];
+const d = await b.newPage({ viewport: { width: 1440, height: 900 } });
+d.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+await d.goto(base, { waitUntil: "networkidle" });
+await d.screenshot({ path: `${out}/brand-header.png`, clip: { x: 0, y: 0, width: 1440, height: 120 } });
+await d.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+await d.waitForTimeout(400);
+await d.screenshot({ path: `${out}/brand-footer.png` });
+await d.goto(`${base}/login`, { waitUntil: "networkidle" });
+await d.screenshot({ path: `${out}/brand-login.png` });
+const m = await (await b.newContext({ ...devices["iPhone 13"] })).newPage();
+await m.goto(base, { waitUntil: "networkidle" });
+await m.screenshot({ path: `${out}/brand-mobile.png`, clip: { x: 0, y: 0, width: 390, height: 140 } });
+const icons = await d.evaluate(() => [...document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"], meta[property="og:image"]')].map((e) => e.getAttribute("href") ?? e.getAttribute("content")));
+console.log(JSON.stringify({ icons, errors }, null, 1));
+await b.close();

@@ -51,7 +51,7 @@ export function SiteHeader() {
       </a>
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/" aria-label="Monrovia Cinema Plus — home" className="rounded-lg">
-          <Wordmark />
+          <Wordmark priority />
         </Link>
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
           {NAV.map((n) => {

@@ -27,10 +27,11 @@ const MAX_POSTER_BYTES = 3_000_000;
  */
 async function posterDataUri(url: string | undefined, origin: string | undefined): Promise<string | null> {
   if (!url || url.includes("..")) return null;
-  if (url.startsWith("/media/")) {
+  if (url.startsWith("/media/") || url.startsWith("/brand/")) {
     try {
       const file = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", url);
-      return `data:image/jpeg;base64,${fs.readFileSync(file).toString("base64")}`;
+      const mime = file.endsWith(".png") ? "image/png" : "image/jpeg";
+      return `data:${mime};base64,${fs.readFileSync(file).toString("base64")}`;
     } catch {
       // Not on this filesystem (e.g. serverless): fall through to fetching it.
     }
@@ -63,7 +64,7 @@ export async function renderTicketSvg(v: BookingView, settings: CinemaSettings, 
     .join("  ·  ");
   const snacksFull = v.concessions.map(describeLine).join(", ");
   const snacks = snacksFull.length > 70 ? `${snacksFull.slice(0, 69)}…` : snacksFull;
-  const poster = await posterDataUri(v.movie.posterUrl, origin);
+  const [poster, badge] = await Promise.all([posterDataUri(v.movie.posterUrl, origin), posterDataUri("/brand/logo-256.png", origin)]);
   const hA = v.movie.art.hueA;
   const hB = v.movie.art.hueB;
   const title = v.movie.title.length > 30 ? `${v.movie.title.slice(0, 29)}…` : v.movie.title;
@@ -91,6 +92,7 @@ export async function renderTicketSvg(v: BookingView, settings: CinemaSettings, 
   ${poster ? "" : `<circle cx="103" cy="120" r="44" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="2"/>
   <text x="103" y="232" text-anchor="middle" font-family="${serif}" font-size="13" fill="#fff" fill-opacity="0.85">${esc(v.movie.rating)}</text>`}
   <text x="206" y="58" font-family="${sans}" font-size="13" letter-spacing="4" fill="#e2bd67">MONROVIA CINEMA PLUS</text>
+  ${badge ? `<image href="${badge}" x="636" y="16" width="62" height="58" preserveAspectRatio="xMidYMid meet"/>` : ""}
   <text x="206" y="104" font-family="${serif}" font-size="36" fill="#f4efe6">${esc(title)}</text>
   <text x="206" y="134" font-family="${sans}" font-size="15" fill="#b3aa9b">${esc(v.movie.rating)} · ${v.movie.runtimeMin} min · ${esc(v.screening.format)}</text>
   <g font-family="${sans}">
