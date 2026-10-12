@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/.data/
+/test-results/
+/playwright-report/
+.dev.log
+!.env.example
+
+# Local credentials — never commit
+cred.txt
+*.cred

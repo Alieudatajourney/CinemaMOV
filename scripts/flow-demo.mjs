@@ -1,0 +1,34 @@
+// Dev helper: run the customer flow and screenshot each step. Usage: node scripts/flow-demo.mjs <screeningId> <outDir> [outcome]
+import { chromium } from "@playwright/test";
+
+const [, , id, out = ".", outcome = "Approve"] = process.argv;
+const base = process.env.BASE_URL || "http://localhost:3000";
+const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome" });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const errors = [];
+page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+page.on("pageerror", (e) => errors.push(String(e)));
+await page.goto(`${base}/book/${id}`, { waitUntil: "networkidle" });
+const avail = page.locator('button.seat[data-state="available"][data-category="standard"]');
+await avail.nth(10).click();
+await avail.nth(10).click();
+await page.getByRole("button", { name: "Continue to checkout" }).click();
+await page.waitForURL(/\/checkout\//);
+await page.getByLabel("Full name").waitFor();
+await page.screenshot({ path: `${out}/checkout.png`, fullPage: true });
+await page.getByRole("button", { name: /Pay .* \(demo\)/ }).click();
+await page.waitForTimeout(300);
+await page.screenshot({ path: `${out}/checkout-errors.png` });
+await page.getByLabel("Full name").fill("Musu Kollie");
+await page.getByLabel("Mobile number").fill("+231 77 123 4567");
+await page.getByLabel("Email (optional)").fill("musu@example.com");
+await page.getByRole("radio", { name: outcome }).click();
+await page.getByRole("button", { name: /Pay .* \(demo\)|Retry/ }).click();
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${out}/processing.png` });
+if (outcome !== "Decline") await page.waitForURL(/\/booking\//, { timeout: 15000 });
+else await page.getByText("Payment not completed").waitFor();
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${out}/result.png`, fullPage: true });
+console.log(JSON.stringify({ url: page.url(), errors }, null, 1));
+await browser.close();

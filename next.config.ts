@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
+// Cache Components is intentionally not enabled: almost every page in this app renders
+// live booking state (seat availability, holds, ticket status), so request-time rendering
+// is the correct default. Pages opt in with `export const dynamic = "force-dynamic"`.
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  poweredByHeader: false,
   turbopack: {
     rules: {
       "*.css": {
@@ -11,6 +12,21 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Cross-origin requests get the bare origin only (never paths or ticket keys). YouTube embeds
+          // require a referrer origin, otherwise the player shows "Video player configuration error".
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+        ],
+      },
+    ];
   },
 };
 
