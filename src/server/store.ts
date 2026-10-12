@@ -4,19 +4,22 @@ import path from "node:path";
 import type { Database } from "@/lib/types";
 import { SEED_CONCESSIONS, buildSeedDatabase } from "./seed";
 import { reconcile } from "./reconcile";
+import { pgLoadForUpdate, pgReplace, pgSave, isPostgresEnabled, withPgTransaction } from "./store-pg";
 
 /**
- * DEMO PERSISTENCE ADAPTER
- * ------------------------
- * Stores the whole database as one JSON file on the server (default `.data/monrovia-cinema-plus.json`).
- * Every read and write goes through `transact`, which:
- *   1. waits for an in-process mutex (so check-then-write sequences are atomic),
- *   2. re-reads the file, applies time-based reconciliation (expired holds/payments release seats),
- *   3. runs the operation and, if it mutated anything, writes the file atomically (tmp + rename).
+ * PERSISTENCE
+ * -----------
+ * Two interchangeable backends behind one `transact` API:
  *
- * Limitations (documented in README): single server process only, not horizontally scalable,
- * no point-in-time recovery. Production should use PostgreSQL (see supabase/schema.sql), where the
- * same invariants are enforced with transactions, unique partial indexes and conditional UPDATEs.
+ *  • Postgres (Supabase) — used whenever DATABASE_URL is set (e.g. on Vercel). The database is one
+ *    JSONB document, read with `SELECT … FOR UPDATE` inside a transaction, so check-then-write
+ *    sequences are atomic across every server instance. See src/server/store-pg.ts.
+ *  • JSON file — the zero-setup local demo (default `.data/monrovia-cinema-plus.json`), guarded
+ *    by an in-process mutex. Single server process only.
+ *
+ * Every transaction: lock → load (seeding on first use) → reconcile expired holds/payments →
+ * run the operation → persist if anything changed. If the operation throws, nothing is written
+ * (the Postgres transaction rolls back; the file is simply not rewritten).
  */
 
 interface StoreGlobal {
@@ -69,36 +72,52 @@ function writeFile(db: Database) {
   }
 }
 
-function loadOrSeed(now: Date): { db: Database; dirty: boolean } {
-  const existing = readFile();
-  if (existing) {
-    // Additive migration for data files created before the concessions menu existed.
-    if (!existing.concessions) {
-      existing.concessions = structuredClone(SEED_CONCESSIONS);
-      return { db: existing, dirty: true };
-    }
-    return { db: existing, dirty: false };
+/** Additive migrations for documents created by older versions. Returns true if changed. */
+function migrate(db: Database): boolean {
+  if (!db.concessions) {
+    db.concessions = structuredClone(SEED_CONCESSIONS);
+    return true;
   }
+  return false;
+}
+
+function loadOrSeed(existing: Database | null, now: Date): { db: Database; dirty: boolean } {
+  if (existing) return { db: existing, dirty: migrate(existing) };
   return { db: buildSeedDatabase(now), dirty: true };
+}
+
+/** Serialise work within this process (reduces lock contention; required for the file backend). */
+function enqueue<T>(run: () => Promise<T>): Promise<T> {
+  const next = state.queue.then(run, run);
+  state.queue = next.catch(() => undefined);
+  return next;
 }
 
 /**
  * Run `fn` with exclusive access to the database. In "write" mode the database is persisted
- * after `fn` returns. If `fn` throws, nothing is written: the next transaction re-reads the
- * file, so partial mutations are discarded (a simple rollback).
+ * after `fn` returns. If `fn` throws, nothing is written.
  */
 export function transact<T>(fn: (db: Database, now: Date) => T, mode: "read" | "write" = "write"): Promise<T> {
-  const run = async () => {
+  if (isPostgresEnabled()) {
+    return enqueue(() =>
+      withPgTransaction(async (client) => {
+        const now = new Date();
+        const { db, dirty: seeded } = loadOrSeed(await pgLoadForUpdate(client), now);
+        const reconciled = reconcile(db, now);
+        const result = fn(db, now);
+        if (seeded || reconciled || mode === "write") await pgSave(client, db);
+        return result;
+      }),
+    );
+  }
+  return enqueue(async () => {
     const now = new Date();
-    const { db, dirty: seeded } = loadOrSeed(now);
+    const { db, dirty: seeded } = loadOrSeed(readFile(), now);
     const reconciled = reconcile(db, now);
     const result = fn(db, now);
     if (seeded || reconciled || mode === "write") writeFile(db);
     return result;
-  };
-  const next = state.queue.then(run, run);
-  state.queue = next.catch(() => undefined);
-  return next;
+  });
 }
 
 export function readDb<T>(fn: (db: Database, now: Date) => T): Promise<T> {
@@ -107,10 +126,6 @@ export function readDb<T>(fn: (db: Database, now: Date) => T): Promise<T> {
 
 /** Replace the database with fresh demo data. */
 export function resetDatabase(): Promise<void> {
-  const run = async () => {
-    writeFile(buildSeedDatabase(new Date()));
-  };
-  const next = state.queue.then(run, run);
-  state.queue = next.catch(() => undefined);
-  return next;
+  if (isPostgresEnabled()) return enqueue(() => withPgTransaction((client) => pgReplace(client, buildSeedDatabase(new Date()))));
+  return enqueue(async () => writeFile(buildSeedDatabase(new Date())));
 }

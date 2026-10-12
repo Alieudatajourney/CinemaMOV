@@ -27,9 +27,9 @@ async function aFreeSeat() {
   });
 }
 
-describe("file store transactions", () => {
+describe(`store transactions (${process.env.DATABASE_URL ? "Postgres" : "file"} backend)`, () => {
   it("persists across reads", async () => {
-    expect(fs.existsSync(process.env.MCP_DATA_FILE!)).toBe(true);
+    if (!process.env.DATABASE_URL) expect(fs.existsSync(process.env.MCP_DATA_FILE!)).toBe(true);
     const name = await readDb((db) => db.settings.name);
     expect(name).toBe("Monrovia Cinema Plus");
   });

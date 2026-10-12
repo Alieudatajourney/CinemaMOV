@@ -62,6 +62,21 @@ The admin overview shows a warning when fewer than three days of screenings rema
 
 ---
 
+## Deploying (Vercel + Supabase)
+
+When `DATABASE_URL` is set, the app stores its data in **Supabase Postgres** instead of the local file (`src/server/store-pg.ts`).
+- The whole state is one JSONB document in the private schema `mcp_private`.
+- Every request locks it inside a transaction (`SELECT … FOR UPDATE`), so booking rules stay atomic across all of Vercel's serverless instances.
+- Row Level Security is on and the schema is not exposed to Supabase's public API.
+- The app connects as a least-privilege role (`mcp_app`) that can only read and update that one table.
+
+| Vercel environment variable | Value |
+|---|---|
+| `DATABASE_URL` | Supabase **Transaction pooler** URI (port 6543) for the `mcp_app` role |
+| `SESSION_SECRET` | 32+ random characters (signs staff sessions) |
+
+`vercel.json` pins functions to `cdg1` (Paris), next to the Supabase project in `eu-west-3`. Without a `DATABASE_URL` the app falls back to the local JSON file, which is fine for `npm run dev`.
+
 ## Architecture
 
 - **Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4**, Lucide icons, `motion` (Framer Motion) for UI animation, `qrcode` for QR generation, and `jsQR` as the camera-scanning fallback when the browser has no `BarcodeDetector`.

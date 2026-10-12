@@ -35,8 +35,14 @@ function sessionSecret(): string {
     cachedSecret = fs.readFileSync(file, "utf8").trim();
   } catch {
     cachedSecret = randomBytes(32).toString("base64url");
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, cachedSecret, { mode: 0o600 });
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, cachedSecret, { mode: 0o600 });
+    } catch {
+      // Read-only filesystem (e.g. Vercel): keep it in memory. Sessions then only survive on this
+      // instance — set SESSION_SECRET for any hosted deployment.
+      console.warn("[auth] Could not persist a generated session secret; set SESSION_SECRET.");
+    }
   }
   return cachedSecret;
 }
